@@ -1,5 +1,8 @@
 import argparse
+import os
+from gevent import monkey
 
+# إعدادات البرامتر
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", help="Port for debug server to listen on", default=4000)
 parser.add_argument(
@@ -11,17 +14,19 @@ parser.add_argument(
     action="store_false",
 )
 args = parser.parse_args()
+
+# إذا كان --disable-gevent مفعلاً
 if args.disable_gevent:
     print(" * Importing gevent and monkey patching. Use --disable-gevent to disable.")
-    from gevent import monkey
-
     monkey.patch_all()
 
-# Import not at top of file to allow gevent to monkey patch uninterrupted
+# استيراد التطبيق
 from CTFd import create_app
 
+# إنشاء التطبيق
 app = create_app()
 
+# إضافة دعم profiling إذا كان مفعلاً
 if args.profile:
     from flask_debugtoolbar import DebugToolbarExtension
     import flask_profiler
@@ -40,4 +45,12 @@ if args.profile:
     toolbar.init_app(app)
     print(" * Flask profiling running at http://127.0.0.1:4000/flask-profiler/")
 
-app.run(debug=True, threaded=True, host="127.0.0.1", port=args.port)
+# تحقق من إذا كنت تعمل مع gunicorn أو لا
+if __name__ == "__main__":
+    # إذا كانت البيئة تستخدم gunicorn، لا نحتاج إلى app.run
+    if os.environ.get("GUNICORN_CMD_ARGS"):
+        # تأكد من أن gunicorn يقوم بتشغيله
+        print("Running with gunicorn")
+    else:
+        # في حالة تشغيل التطبيق محليًا (أو غير gunicorn)
+        app.run(debug=True, threaded=True, host="127.0.0.1", port=args.port)
